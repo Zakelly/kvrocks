@@ -218,6 +218,7 @@ jobs:
 
       - name: Cache redis
         id: cache-redis
+        if: ${{ !startsWith(matrix.os, 'macos') }}
         uses: actions/cache@v4
         with:
           path: |
@@ -225,19 +226,25 @@ jobs:
           key: ${{ runner.os }}-${{ runner.arch }}-redis-cli
       - name: Cache redis server
         id: cache-redis-server
+        if: ${{ !startsWith(matrix.os, 'macos') }}
         uses: actions/cache@v4
         with:
           path: |
             ~/local/bin/redis-server
           key: ${{ matrix.os }}-redis-server
       - name: Install redis
-        if: steps.cache-redis.outputs.cache-hit != 'true' || steps.cache-redis-server.outputs.cache-hit != 'true'
+        if: ${{ !startsWith(matrix.os, 'macos') && (steps.cache-redis.outputs.cache-hit != 'true' || steps.cache-redis-server.outputs.cache-hit != 'true') }}
         run: |
           curl -O https://download.redis.io/releases/redis-6.2.7.tar.gz
           tar -xzvf redis-6.2.7.tar.gz
           mkdir -p $HOME/local/bin
           pushd redis-6.2.7 && BUILD_TLS=yes make -j$NPROC redis-cli && mv src/redis-cli $HOME/local/bin/ && popd
           pushd redis-6.2.7 && BUILD_TLS=yes make -j$NPROC redis-server && mv src/redis-server $HOME/local/bin/ && popd
+
+      - name: Setup redis (macOS)
+        if: ${{ startsWith(matrix.os, 'macos') }}
+        run: |
+          brew install redis@6.2
 
       - uses: actions/checkout@v4
         with:
@@ -310,24 +317,42 @@ jobs:
         run: pip3 install redis==4.3.6
 
       - name: Run kvrocks2redis Test
-        if: ${{ !contains(matrix.name, 'Tsan') && !contains(matrix.name, 'Asan') && !startsWith(matrix.os, 'macos') }}
+#        if: ${{ !contains(matrix.name, 'Tsan') && !contains(matrix.name, 'Asan') && !startsWith(matrix.os, 'macos') }}
+        if: ${{ !startsWith(matrix.os, 'macos') }}
         run: |
           ulimit -c unlimited
           export LSAN_OPTIONS="suppressions=$(realpath ./tests/lsan-suppressions)"
           export TSAN_OPTIONS="suppressions=$(realpath ./tests/tsan-suppressions)"
           $HOME/local/bin/redis-server --daemonize yes
           mkdir -p data
-          echo "dir `pwd`/data" >> ./utils/kvrocks2redis/tests/ci/kvrocks.conf
-          echo "pidfile `pwd`/kvrocks.pid" >> ./utils/kvrocks2redis/tests/ci/kvrocks.conf
-          echo "data-dir `pwd`/data" >> ./utils/kvrocks2redis/tests/ci/kvrocks2redis.conf
-          ./build/kvrocks -c ./utils/kvrocks2redis/tests/ci/kvrocks.conf
+          ./build/kvrocks --dir `pwd`/data --pidfile `pwd`/kvrocks.pid --daemonize yes
           sleep 15s
-          ./build/kvrocks2redis -c ./utils/kvrocks2redis/tests/ci/kvrocks2redis.conf
+          echo "data-dir `pwd`/data\n daemonize yes\n output-dir ./ \n namespace.__namespace 127.0.0.1 6379" >> ./kvrocks2redis-ci.conf
+          ./build/kvrocks2redis -c ./kvrocks2redis-ci.conf
           sleep 15s
           python3 utils/kvrocks2redis/tests/populate-kvrocks.py --password="" --flushdb=true
           sleep 15s
           ps aux
           python3 utils/kvrocks2redis/tests/check_consistency.py --src_password=""
+
+      - name: Run kvrocks2redis Test (macOS)
+        if: ${{ startsWith(matrix.os, 'macos') }}
+        run: |
+          ulimit -c unlimited
+          export LSAN_OPTIONS="suppressions=$(realpath ./tests/lsan-suppressions)"
+          export TSAN_OPTIONS="suppressions=$(realpath ./tests/tsan-suppressions)"
+          redis-server --daemonize yes
+          mkdir -p data
+          ./build/kvrocks --dir `pwd`/data --pidfile `pwd`/kvrocks.pid --daemonize yes
+          sleep 15
+          echo "data-dir `pwd`/data\n daemonize yes\n output-dir ./ \n namespace.__namespace 127.0.0.1 6379" >> ./kvrocks2redis-ci.conf
+          ./build/kvrocks2redis -c ./kvrocks2redis-ci.conf
+          sleep 15
+          python3 utils/kvrocks2redis/tests/populate-kvrocks.py --password="" --flushdb=true
+          sleep 15
+          ps aux
+          python3 utils/kvrocks2redis/tests/check_consistency.py --src_password=""
+
 
       - name: Find reports and crashes
         if: always()
@@ -517,12 +542,10 @@ jobs:
         run: |
           $HOME/local/bin/redis-server --daemonize yes
           mkdir -p data
-          echo "dir `pwd`/data" >> ./utils/kvrocks2redis/tests/ci/kvrocks.conf
-          echo "pidfile `pwd`/kvrocks.pid" >> ./utils/kvrocks2redis/tests/ci/kvrocks.conf
-          echo "data-dir `pwd`/data" >> ./utils/kvrocks2redis/tests/ci/kvrocks2redis.conf
-          ./build/kvrocks -c ./utils/kvrocks2redis/tests/ci/kvrocks.conf
+          ./build/kvrocks --dir `pwd`/data --pidfile `pwd`/kvrocks.pid --daemonize yes
           sleep 15s
-          ./build/kvrocks2redis -c ./utils/kvrocks2redis/tests/ci/kvrocks2redis.conf
+          echo "data-dir `pwd`/data\n daemonize yes\n output-dir ./ \n namespace.__namespace 127.0.0.1 6379" >> ./kvrocks2redis-ci.conf
+          ./build/kvrocks2redis -c ./kvrocks2redis-ci.conf
           sleep 15s
           python3 utils/kvrocks2redis/tests/populate-kvrocks.py --password="" --flushdb=true
           sleep 15s
