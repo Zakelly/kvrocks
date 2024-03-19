@@ -340,9 +340,7 @@ jobs:
         if: ${{ startsWith(matrix.os, 'macos') }}
         run: |
           ulimit -c unlimited
-          export LSAN_OPTIONS="suppressions=$(realpath ./tests/lsan-suppressions)"
-          export TSAN_OPTIONS="suppressions=$(realpath ./tests/tsan-suppressions)"
-          redis-server --daemonize yes
+          brew services start redis@6.2
           mkdir -p data
           ./build/kvrocks --dir `pwd`/data --pidfile `pwd`/kvrocks.pid --daemonize yes
           sleep 15
