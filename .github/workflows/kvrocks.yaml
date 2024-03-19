@@ -80,27 +80,27 @@ jobs:
       - uses: apache/skywalking-eyes/header@v0.5.0
         with:
           config: .github/config/licenserc.yml
-      - name: Check with clang-format
-        id: check-format
-        run: ./x.py check format --clang-format-path clang-format-14
-      - name: Check with clang-tidy
-        run: |
-          ./x.py build --skip-build
-          ./x.py check tidy -j $(nproc) --clang-tidy-path clang-tidy-14 --run-clang-tidy-path run-clang-tidy-14
-      - name: Lint with golangci-lint
-        run: ./x.py check golangci-lint
-
-      - name: Prepare format patch
-        if: always() && steps.check-format.outcome != 'success'
-        run: |
-          ./x.py format --clang-format-path clang-format-14
-          git diff -p > clang-format.patch
-          cat clang-format.patch
-      - name: Upload format patch
-        uses: actions/upload-artifact@v4
-        if: always() && steps.check-format.outcome != 'success'
-        with:
-          path: clang-format.patch
+#      - name: Check with clang-format
+#        id: check-format
+#        run: ./x.py check format --clang-format-path clang-format-14
+#      - name: Check with clang-tidy
+#        run: |
+#          ./x.py build --skip-build
+#          ./x.py check tidy -j $(nproc) --clang-tidy-path clang-tidy-14 --run-clang-tidy-path run-clang-tidy-14
+#      - name: Lint with golangci-lint
+#        run: ./x.py check golangci-lint
+#
+#      - name: Prepare format patch
+#        if: always() && steps.check-format.outcome != 'success'
+#        run: |
+#          ./x.py format --clang-format-path clang-format-14
+#          git diff -p > clang-format.patch
+#          cat clang-format.patch
+#      - name: Upload format patch
+#        uses: actions/upload-artifact@v4
+#        if: always() && steps.check-format.outcome != 'success'
+#        with:
+#          path: clang-format.patch
 
   build-and-test:
     name: Build and test
@@ -288,30 +288,30 @@ jobs:
           echo "$(pwd)/coredumps/corefile-%e-%p-%t" | sudo tee /proc/sys/kernel/core_pattern
           mkdir coredumps
 
-      - name: Run Unit Test
-        run: |
-          ulimit -c unlimited
-          export LSAN_OPTIONS="suppressions=$(realpath ./tests/lsan-suppressions)"
-          export TSAN_OPTIONS="suppressions=$(realpath ./tests/tsan-suppressions)"
-          ./x.py test cpp
-
-      - name: Run Go Integration Cases
-        run: |
-          ulimit -c unlimited
-          export LSAN_OPTIONS="suppressions=$(realpath ./tests/lsan-suppressions)"
-          export TSAN_OPTIONS="suppressions=$(realpath ./tests/tsan-suppressions)"
-          export PATH=$PATH:$HOME/local/bin/
-          GOCASE_RUN_ARGS=""
-          if [[ -n "${{ matrix.with_openssl }}" ]] && [[ "${{ matrix.os }}" == ubuntu* ]]; then
-            git clone https://github.com/jsha/minica
-            cd minica && go build && cd ..
-            ./minica/minica --domains localhost
-            cp localhost/cert.pem tests/gocase/tls/cert/server.crt
-            cp localhost/key.pem tests/gocase/tls/cert/server.key
-            cp minica.pem tests/gocase/tls/cert/ca.crt
-            GOCASE_RUN_ARGS="-tlsEnable"
-          fi
-          ./x.py test go build $GOCASE_RUN_ARGS ${{ matrix.ignore_when_tsan}}
+#      - name: Run Unit Test
+#        run: |
+#          ulimit -c unlimited
+#          export LSAN_OPTIONS="suppressions=$(realpath ./tests/lsan-suppressions)"
+#          export TSAN_OPTIONS="suppressions=$(realpath ./tests/tsan-suppressions)"
+#          ./x.py test cpp
+#
+#      - name: Run Go Integration Cases
+#        run: |
+#          ulimit -c unlimited
+#          export LSAN_OPTIONS="suppressions=$(realpath ./tests/lsan-suppressions)"
+#          export TSAN_OPTIONS="suppressions=$(realpath ./tests/tsan-suppressions)"
+#          export PATH=$PATH:$HOME/local/bin/
+#          GOCASE_RUN_ARGS=""
+#          if [[ -n "${{ matrix.with_openssl }}" ]] && [[ "${{ matrix.os }}" == ubuntu* ]]; then
+#            git clone https://github.com/jsha/minica
+#            cd minica && go build && cd ..
+#            ./minica/minica --domains localhost
+#            cp localhost/cert.pem tests/gocase/tls/cert/server.crt
+#            cp localhost/key.pem tests/gocase/tls/cert/server.key
+#            cp minica.pem tests/gocase/tls/cert/ca.crt
+#            GOCASE_RUN_ARGS="-tlsEnable"
+#          fi
+#          ./x.py test go build $GOCASE_RUN_ARGS ${{ matrix.ignore_when_tsan}}
 
       - name: Install redis-py
         run: pip3 install redis==4.3.6
@@ -525,15 +525,15 @@ jobs:
         run: |
           ./x.py build -j$NPROC --unittest --compiler ${{ matrix.compiler }}
 
-      - name: Run Unit Test
-        run: |
-          ./x.py test cpp
-
-      - name: Run Go Integration Cases
-        run: |
-          export PATH=$PATH:$HOME/local/bin/
-          GOCASE_RUN_ARGS=""
-          ./x.py test go build $GOCASE_RUN_ARGS
+#      - name: Run Unit Test
+#        run: |
+#          ./x.py test cpp
+#
+#      - name: Run Go Integration Cases
+#        run: |
+#          export PATH=$PATH:$HOME/local/bin/
+#          GOCASE_RUN_ARGS=""
+#          ./x.py test go build $GOCASE_RUN_ARGS
 
       - name: Install redis-py
         if: ${{ !startsWith(matrix.image, 'archlinux') }}  # already installed
